@@ -10,7 +10,7 @@ This is in an extremely early state, and currently only triggers alerts after up
 ### Installation
 1. Install Homebridge using the [official instructions](https://github.com/homebridge/homebridge/wiki).
 2. Install homebridge-camera-ffmpeg using `sudo npm install -g homebridge-camera-ffmpeg --unsafe-perm`.
-3. Install this plugin using `sudo npm install -g homebridge-dafang-mqtt-republishftp-motion`.
+3. Install this plugin using `sudo npm install -g homebridge-ftp-motion`.
 4. Update your configuration file. See configuration sample below.
 
 ### Configuration

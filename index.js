@@ -1,8 +1,8 @@
 const { FtpSrv, FileSystem } = require('ftp-srv');
-const fs = require('fs')
 const ip = require('ip');
 const stream = require('stream');
 const http = require('http');
+const pathjs = require('path');
 
 module.exports = function(homebridge) {
     homebridge.registerPlatform("homebridge-ftp-motion", "ftpMotion", ftpMotion, true);
@@ -26,7 +26,8 @@ ftpMotion.prototype.startFtp = function() {
     const ftpServer = new FtpSrv({
         url: `ftp://${ipAddr}:${ftpPort}`,
         pasv_url: ipAddr,
-        anonymous: true
+        anonymous: true,
+        blacklist: ['MKD', 'APPE', 'RETR', 'DELE', 'RNFR', 'RNTO', 'RMD']
     });
     ftpServer.on('login', (data, resolve) => {
         resolve({fs: new MotionFS(data.connection, this), cwd: '/'});
@@ -52,30 +53,27 @@ class MotionFS extends FileSystem {
             mtime: new Date(),
             ctime: new Date(),
             uid: 0,
-            gid: 0,
-            mode: fs.constants.R_OK
+            gid: 0
         }
     }
 
     list(path = '.') {
-        if (path != '.') {
-            this.cwd = path;
-        }
-
+        path = pathjs.join(this.cwd, path);
         var dirs = [];
         dirs.push(this.get('.'));
-
         if (this.cwd == '/') {
             this.motion.cameraConfigs.forEach(camera => {
                 dirs.push(this.get(camera.name));
             });
+        } else {
+            dirs.push(this.get('..'));
         }
-        
         return dirs;
     }
 
     chdir(path = '.') {
-        const pathSplit = path.split(/\//).filter((value) => value != '');
+        path = pathjs.join(this.cwd, path);
+        const pathSplit = path == '..' ? [] : path.split(/\//).filter((value) => value != '');
         if (pathSplit.length == 0) {
             this.cwd = path;
             return path;
@@ -89,11 +87,6 @@ class MotionFS extends FileSystem {
             }
         }
         this.connection.reply(550, 'No such directory.');
-        return this.cwd;
-    }
-
-    mkdir(path) {
-        this.connection.reply(550, 'Permission denied.');
         return this.cwd;
     }
 
@@ -124,6 +117,15 @@ class MotionFS extends FileSystem {
         return writeStream;
     }
 
+    chmod(path, mode) {
+        return;
+    }
+
+    mkdir(path) {
+        this.connection.reply(550, 'Permission denied.');
+        return this.cwd;
+    }
+
     read(fileName, {start = undefined}) {
         this.connection.reply(550, 'Permission denied.');
         return;
@@ -136,10 +138,6 @@ class MotionFS extends FileSystem {
 
     rename(from, to) {
         this.connection.reply(550, 'Permission denied.');
-        return;
-    }
-
-    chmod(path, mode) {
         return;
     }
 }
