@@ -41,6 +41,6 @@ Edit your `config.json` accordingly. Configuration sample:
 ### Camera Configuration
 To use this plugin, you'll need to configure the FTP settings on your camera as listed below. Your camera may use slightly different terms for some of these options.
 - `Host Name`: The host name or IP address of the computer running Homebridge
-- `Port`: The value you used for `http_port` in the plugin configuration.
+- `Port`: The value you used for `ftp_port` in the plugin configuration.
 - `Username` and `Password`: Any value can currently be used, as authentication is not currently supported in this plugin. That will likely be added in future versions.
 - `Path`: This should be the name of your camera, exactly as defined in the homebridge-camera-ffmpeg plugin.
