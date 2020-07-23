@@ -33,14 +33,18 @@ Edit your `config.json` accordingly. Configuration sample:
 ]
 ```
 
-| Fields               | Description                                                                             | Required |
-|----------------------|-----------------------------------------------------------------------------------------|----------|
-| platform             | Must always be `ftpMotion`.                                                             | Yes      |
-| ftp_port             | The port to run the FTP server on. (Default: 5000)                                      | No       |
-| http_port            | The HTTP port used by homebridge-camera-ffmpeg. (Default: 8080)                         | No       |
-| cameras              | Array of Dafang Hacks camera configs (multiple supported).                              | Yes      |
-| \|- name             | Name of your camera. (Needs to be the same as in homebridge-camera-ffmpeg config)       | Yes      |
-| \|- path             | The location to store incoming images.                                                  | No       |
+#### Configuration Options
+
+- `ftp_port`: The port to run the FTP server on. (Default: `5000`)
+- `http_port`: The HTTP port used by homebridge-camera-ffmpeg. (Default: `8080`)
+- `cameras`: _(Required)_ Array of Dafang Hacks camera configs (multiple supported).
+  - `name`: _(Required)_ Name of your camera. (Needs to be the same as in homebridge-camera-ffmpeg config)
+  - `server`: Hostname or IP address of the FTP server to upload to. If not set, files will be stored locally.
+  - `port`: Port of the remote FTP server. (Default: `21`)
+  - `username`: Username of the remote FTP server. If not set, no authentication will be used.
+  - `password`: Password of the remote FTP server. If not set, no authentication will be used.
+  - `tls`: Should TLS be used to connect to remote FTP server? (Default: `false`)
+  - `path`: The location to store incoming images. If neither this nor FTP Server are set, no images will be stored.
 
 ### Camera Configuration
 

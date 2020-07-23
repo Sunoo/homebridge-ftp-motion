@@ -17,13 +17,13 @@
             "ftp_port": {
                 "title": "FTP Port",
                 "type": "integer",
-                "placeholder": "5000",
+                "placeholder": 5000,
                 "description": "The port to run the FTP server on."
             },
             "http_port": {
                 "title": "HTTP Port",
                 "type": "integer",
-                "placeholder": "8080",
+                "placeholder": 8080,
                 "description": "The HTTP port used by homebridge-camera-ffmpeg."
             },
             "cameras": {
@@ -41,10 +41,36 @@
                 			"required": true,
                 			"description": "Name of your camera. (Needs to be the same as in homebridge-camera-ffmpeg config)"
                         },
+                        "server": {
+                            "title": "FTP Server",
+                            "type": "string",
+                			"description": "Hostname or IP address of the FTP server to upload to. If not set, files will be stored locally."
+                        },
+                        "port": {
+                            "title": "FTP Port",
+                            "type": "integer",
+                            "placeholder": 21,
+                			"description": "Port of the remote FTP server."
+                        },
+                        "username": {
+                            "title": "FTP Username",
+                            "type": "string",
+                			"description": "Username of the remote FTP server. If not set, no authentication will be used."
+                        },
+                        "password": {
+                            "title": "FTP Password",
+                            "type": "string",
+                			"description": "Password of the remote FTP server. If not set, no authentication will be used."
+                        },
+                        "tls": {
+                            "title": "Use TLS",
+                            "type": "boolean",
+                			"description": "Should TLS be used to connect to remote FTP server?"
+                        },
                         "path": {
                             "title": "Image Storage Path",
                             "type": "string",
-                			"description": "The location to store incoming images."
+                			"description": "The location to store incoming images. If neither this nor FTP Server are set, no images will be stored."
                         }
                     }
                 }

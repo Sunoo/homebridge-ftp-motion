@@ -5,6 +5,7 @@ const http = require('http');
 const pathjs = require('path');
 const bunyan = require('bunyan');
 const fs = require('fs');
+const basicFtp = require("basic-ftp");
 
 module.exports = function(homebridge) {
     homebridge.registerPlatform('homebridge-ftp-motion', 'ftpMotion', ftpMotion, true);
@@ -127,7 +128,31 @@ class MotionFS extends FileSystem {
                     this.main.log.error(camera.name + ': Error making HTTP call: ' + ex);
                 }
                 let writeStream;
-                if (camera.path) {
+                if (camera.server) {
+                    writeStream = stream.Transform({
+                        transform: (chunk, encoding, done) => {
+                            done(null, chunk);
+                        }
+                    });
+                    const client = new basicFtp.Client();
+                    const remotePort = camera.port || 21;
+                    const remotePath = camera.path || '/';
+                    client.access({
+                        host: camera.server,
+                        port: remotePort,
+                        user: camera.username,
+                        password: camera.password,
+                        secure: camera.tls
+                    }).then(() => {
+                        return client.ensureDir(remotePath);
+                    }).then(() => {
+                        return client.uploadFrom(writeStream, fileName);
+                    }).catch((err) => {
+                        this.main.log.error(camera.name + ': Error uploading file: ' + err);
+                    }).finally(() => {
+                        client.close();
+                    });
+                } else if (camera.path) {
                     let filePath = pathjs.join(camera.path, fileName);
                     writeStream = fs.createWriteStream(filePath);
                     writeStream.on('finish', () => {
