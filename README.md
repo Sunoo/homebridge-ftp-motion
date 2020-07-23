@@ -6,8 +6,6 @@ This plugin converts FTP uploads into HTTP motion alerts [homebridge-camera-ffmp
 
 Note that this plugin itself does not expose any devices to HomeKit.
 
-This is in an extremely early state, and currently only triggers alerts after uploading an image into the folder with the same name as your camera. The image is not currently stored anywhere.
-
 ## Installation
 
 1. Install Homebridge using the [official instructions](https://github.com/homebridge/homebridge/wiki).
@@ -23,11 +21,12 @@ Edit your `config.json` accordingly. Configuration sample:
 "platforms": [
     {
         "platform": "ftpMotion",
-        "ftp_port": "5000",
+        "ftp_port": 5000,
         "http_port": 8080,
         "cameras": [
             {
                 "name": "Cat Food Camera",
+                "path": "/home/user/images/cat"
             }
         ]
     }
@@ -41,6 +40,7 @@ Edit your `config.json` accordingly. Configuration sample:
 | http_port            | The HTTP port used by homebridge-camera-ffmpeg. (Default: 8080)                         | No       |
 | cameras              | Array of Dafang Hacks camera configs (multiple supported).                              | Yes      |
 | \|- name             | Name of your camera. (Needs to be the same as in homebridge-camera-ffmpeg config)       | Yes      |
+| \|- path             | The location to store incoming images.                                                  | No       |
 
 ### Camera Configuration
 

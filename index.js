@@ -4,6 +4,7 @@ const stream = require('stream');
 const http = require('http');
 const pathjs = require('path');
 const bunyan = require('bunyan');
+const fs = require('fs');
 
 module.exports = function(homebridge) {
     homebridge.registerPlatform('homebridge-ftp-motion', 'ftpMotion', ftpMotion, true);
@@ -24,7 +25,10 @@ ftpMotion.prototype.startFtp = function() {
     const ftpPort = this.config.ftp_port || 5000;
     const bunLog = bunyan.createLogger({
         name: 'ftp',
-        streams: [{ stream: new Logger(this.log), type: 'raw' }]
+        streams: [{
+            stream: new Logger(this.log),
+            type: 'raw'
+        }]
     });
     const ftpServer = new FtpSrv({
         url: 'ftp://' + ipAddr + ':' + ftpPort,
@@ -62,9 +66,9 @@ class Logger {
 }
 
 class MotionFS extends FileSystem {
-    constructor(connection, motion) {
+    constructor(connection, main) {
         super(connection);
-        this.motion = motion;
+        this.main = main;
     }
     
     get(fileName) {
@@ -85,7 +89,7 @@ class MotionFS extends FileSystem {
         var dirs = [];
         dirs.push(this.get('.'));
         if (this.cwd == '/') {
-            this.motion.cameraConfigs.forEach(camera => {
+            this.main.cameraConfigs.forEach(camera => {
                 dirs.push(this.get(camera.name));
             });
         } else {
@@ -101,7 +105,7 @@ class MotionFS extends FileSystem {
             this.cwd = path;
             return path;
         } else if (pathSplit.length == 1) {
-            const camera = this.motion.cameraConfigs.find(camera => camera.name == pathSplit[0]);
+            const camera = this.main.cameraConfigs.find(camera => camera.name == pathSplit[0]);
             if (camera) {
                 this.cwd = path;
                 return path;
@@ -114,20 +118,32 @@ class MotionFS extends FileSystem {
     write(fileName, {append = false, start = undefined}) {
         const pathSplit = this.cwd.split('/').filter((value) => value != '');
         if (pathSplit.length == 1) {
-            const camera = this.motion.cameraConfigs.find(camera => camera.name == pathSplit[0]);
+            const camera = this.main.cameraConfigs.find(camera => camera.name == pathSplit[0]);
             if (camera) {
-                this.motion.log.debug(camera.name + ' Motion Detected!');
+                this.main.log.debug(camera.name + ' motion detected.');
                 try {
-                    http.get('http://127.0.0.1:' + this.motion.httpPort + '/motion?' + camera.name);
+                    http.get('http://127.0.0.1:' + this.main.httpPort + '/motion?' + camera.name);
                 } catch (ex) {
-                    this.motion.log.error(camera.name + ': Error making HTTP call: ' + ex);
+                    this.main.log.error(camera.name + ': Error making HTTP call: ' + ex);
                 }
-                var nullStream = stream.Writable({
-                    write: (chunk, encoding, done) => {
-                        done();
-                    }
-                });
-                return nullStream;
+                let writeStream;
+                if (camera.path) {
+                    let filePath = pathjs.join(camera.path, fileName);
+                    writeStream = fs.createWriteStream(filePath);
+                    writeStream.on('finish', () => {
+                        this.main.log.debug(camera.name + ': Wrote file: ' + fileName);
+                    });
+                    writeStream.on('error', (err) => {
+                        this.main.log.error(camera.name + ': Error writing file: ' + err);
+                    });
+                } else {
+                    writeStream = stream.Writable({
+                        write: (chunk, encoding, done) => {
+                            done();
+                        }
+                    });
+                }
+                return writeStream;
             }
         }
         this.connection.reply(550, 'Permission denied.');
