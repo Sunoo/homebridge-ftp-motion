@@ -15,8 +15,19 @@ function ftpMotion(log, config, api) {
     this.log = log;
     this.config = config;
     
-    this.cameraConfigs = config.cameras || [];
     this.httpPort = config.http_port || 8080;
+    this.cameraConfigs = [];
+
+    config.cameras.forEach((camera) => {
+        const ascii = /^[\x00-\x7F]*$/.test(camera.name);
+        if (ascii) {
+            this.cameraConfigs.push(camera);
+        } else {
+            this.log.warn('Camera "' + camera.name + '" contains non-ASCII characters. FTP does not support Unicode, ' +
+            'so it is being skipped. Please rename this camera if you wish to use this plugin with it.');
+        }
+        this.log(camera.name);
+    })
 
     api.on('didFinishLaunching', this.startFtp.bind(this));
 }

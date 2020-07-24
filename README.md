@@ -44,7 +44,7 @@ Edit your `config.json` accordingly. Configuration sample:
   - `username`: Username of the remote FTP server. If not set, no authentication will be used.
   - `password`: Password of the remote FTP server. If not set, no authentication will be used.
   - `tls`: Should TLS be used to connect to remote FTP server? (Default: `false`)
-  - `path`: The location to store incoming images. If neither this nor FTP Server are set, no images will be stored.
+  - `path`: The location to store incoming images. If FTP Server is not set, it will be treated as a local path. If neither this nor FTP Server are set, images will not be stored.
 
 ### Camera Configuration
 

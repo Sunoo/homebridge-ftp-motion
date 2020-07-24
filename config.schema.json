@@ -15,7 +15,7 @@
                 "description": "A unique name for the accessory."
             },
             "ftp_port": {
-                "title": "FTP Port",
+                "title": "Local FTP Port",
                 "type": "integer",
                 "placeholder": 5000,
                 "description": "The port to run the FTP server on."
@@ -42,23 +42,23 @@
                 			"description": "Name of your camera. (Needs to be the same as in homebridge-camera-ffmpeg config)"
                         },
                         "server": {
-                            "title": "FTP Server",
+                            "title": "Remote FTP Server",
                             "type": "string",
                 			"description": "Hostname or IP address of the FTP server to upload to. If not set, files will be stored locally."
                         },
                         "port": {
-                            "title": "FTP Port",
+                            "title": "Remote FTP Port",
                             "type": "integer",
                             "placeholder": 21,
                 			"description": "Port of the remote FTP server."
                         },
                         "username": {
-                            "title": "FTP Username",
+                            "title": "Remote FTP Username",
                             "type": "string",
                 			"description": "Username of the remote FTP server. If not set, no authentication will be used."
                         },
                         "password": {
-                            "title": "FTP Password",
+                            "title": "Remote FTP Password",
                             "type": "string",
                 			"description": "Password of the remote FTP server. If not set, no authentication will be used."
                         },
@@ -68,9 +68,9 @@
                 			"description": "Should TLS be used to connect to remote FTP server?"
                         },
                         "path": {
-                            "title": "Image Storage Path",
+                            "title": "Storage Path",
                             "type": "string",
-                			"description": "The location to store incoming images. If neither this nor FTP Server are set, no images will be stored."
+                			"description": "The location to store incoming images. If FTP Server is not set, it will be treated as a local path. If neither this nor FTP Server are set, images will not be stored."
                         }
                     }
                 }
