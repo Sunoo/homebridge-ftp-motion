@@ -17,6 +17,7 @@ function ftpMotion(log, config, api) {
     
     this.httpPort = config.http_port || 8080;
     this.cameraConfigs = [];
+    this.timers = {};
 
     config.cameras.forEach((camera) => {
         const ascii = /^[\x00-\x7F]*$/.test(camera.name);
@@ -26,7 +27,7 @@ function ftpMotion(log, config, api) {
             this.log.warn('Camera "' + camera.name + '" contains non-ASCII characters. FTP does not support Unicode, ' +
             'so it is being skipped. Please rename this camera if you wish to use this plugin with it.');
         }
-        this.log(camera.name);
+        this.timers[camera.name] = null;
     })
 
     api.on('didFinishLaunching', this.startFtp.bind(this));
@@ -97,7 +98,7 @@ class MotionFS extends FileSystem {
     }
 
     list(path = '.') {
-        path = pathjs.join(this.cwd, path);
+        path = pathjs.resolve(this.cwd, path);
         var dirs = [];
         dirs.push(this.get('.'));
         if (this.cwd == '/') {
@@ -111,7 +112,7 @@ class MotionFS extends FileSystem {
     }
 
     chdir(path = '.') {
-        path = pathjs.join(this.cwd, path);
+        path = pathjs.resolve(this.cwd, path);
         const pathSplit = path.split('/').filter(value => value.length > 0);
         if (pathSplit.length == 0) {
             this.cwd = path;
@@ -128,15 +129,37 @@ class MotionFS extends FileSystem {
     }
 
     write(fileName, {append = false, start = undefined}) {
-        const pathSplit = this.cwd.split('/').filter((value) => value != '');
+        const path = pathjs.resolve(this.cwd, fileName);
+        fileName = pathjs.basename(path);
+        const pathSplit = pathjs.dirname(path).split('/').filter((value) => value != '');
         if (pathSplit.length == 1) {
             const camera = this.main.cameraConfigs.find(camera => camera.name == pathSplit[0]);
             if (camera) {
                 this.main.log.debug(camera.name + ' motion detected.');
-                try {
-                    http.get('http://127.0.0.1:' + this.main.httpPort + '/motion?' + camera.name);
-                } catch (ex) {
-                    this.main.log.error(camera.name + ': Error making HTTP call: ' + ex);
+                if (!this.main.timers[camera.name]) {
+                    try {
+                        http.get('http://127.0.0.1:' + this.main.httpPort + '/motion?' + camera.name);
+                    } catch (ex) {
+                        this.main.log.error(camera.name + ': Error making HTTP call: ' + ex);
+                    }
+                } else {
+                    this.main.log.debug('Motion set received, but cooldown running: ' + camera.name);
+                }
+                if (camera.cooldown > 0) {
+                    if (this.main.timers[camera.name]) {
+                        this.main.log.debug('Cancelling existing cooldown timer: ' + camera.name);
+                        clearTimeout(this.main.timers[camera.name]);
+                    }
+                    this.main.log.debug('Cooldown enabled, starting timer: ' + camera.name);
+                    this.main.timers[camera.name] = setTimeout(function() {
+                        this.main.log.debug('Cooldown finished: ' + camera.name);
+                        try {
+                            http.get('http://127.0.0.1:' + this.main.httpPort + '/motion/reset?' + camera.name);
+                        } catch (ex) {
+                            this.main.log.error(camera.name + ': Error making HTTP call: ' + ex);
+                        }
+                        this.main.timers[camera.name] = null;
+                    }.bind(this), camera.cooldown * 1000);
                 }
                 let writeStream;
                 if (camera.server) {
@@ -164,7 +187,7 @@ class MotionFS extends FileSystem {
                         client.close();
                     });
                 } else if (camera.path) {
-                    let filePath = pathjs.join(camera.path, fileName);
+                    let filePath = pathjs.resolve(camera.path, fileName);
                     writeStream = fs.createWriteStream(filePath);
                     writeStream.on('finish', () => {
                         this.main.log.debug(camera.name + ': Wrote file: ' + fileName);

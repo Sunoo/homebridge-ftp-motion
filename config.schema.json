@@ -41,6 +41,13 @@
                 			"required": true,
                 			"description": "Name of your camera. (Needs to be the same as in homebridge-camera-ffmpeg config)"
                         },
+                        "cooldown": {
+                            "title": "Cooldown (Seconds)",
+                            "type": "integer",
+                            "placeholder": 0,
+                            "minimum": 0,
+                			"description": "Set to 0 to disable."
+                        },
                         "server": {
                             "title": "Remote FTP Server",
                             "type": "string",

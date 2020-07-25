@@ -39,6 +39,7 @@ Edit your `config.json` accordingly. Configuration sample:
 - `http_port`: The HTTP port used by homebridge-camera-ffmpeg. (Default: `8080`)
 - `cameras`: _(Required)_ Array of Dafang Hacks camera configs (multiple supported).
   - `name`: _(Required)_ Name of your camera. (Needs to be the same as in homebridge-camera-ffmpeg config)
+  - `cooldown`: Cooldown in seconds. Set to 0 to disable.
   - `server`: Hostname or IP address of the FTP server to upload to. If not set, files will be stored locally.
   - `port`: Port of the remote FTP server. (Default: `21`)
   - `username`: Username of the remote FTP server. If not set, no authentication will be used.
