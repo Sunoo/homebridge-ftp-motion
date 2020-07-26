@@ -1,6 +1,4 @@
-/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-
 import { Logging } from 'homebridge';
 import { FileSystem, FtpConnection } from 'ftp-srv';
 import { Stream, TransformCallback } from 'stream';
@@ -8,29 +6,25 @@ import http from 'http';
 import pathjs from 'path';
 import fs from 'fs';
 import basicFtp from 'basic-ftp';
+import { CameraConfig } from './configTypes';
 
 export class MotionFS extends FileSystem {
   private readonly log: Logging;
   private readonly httpPort: number;
-  private readonly cameraConfigs: Array<any>;
-  private readonly timers: any;
+  private readonly cameraConfigs: Array<CameraConfig>;
+  private readonly timers: Map<string, NodeJS.Timeout> = new Map();
   private realCwd: string;
 
-  constructor(connection: FtpConnection, log: Logging, httpPort: number, cameraConfigs: Array<any>) {
+  constructor(connection: FtpConnection, log: Logging, httpPort: number, cameraConfigs: Array<CameraConfig>) {
     super(connection);
     this.log = log;
     this.httpPort = httpPort;
     this.cameraConfigs = cameraConfigs;
 
     this.realCwd = '/';
-
-    this.timers = {};
-    this.cameraConfigs.forEach((camera: any) => {
-      this.timers[camera.name] = null;
-    });
   }
 
-  get(fileName: string): any {
+  get(fileName: string): any { // eslint-disable-line @typescript-eslint/no-explicit-any
     return {
       name: fileName,
       isDirectory: (): boolean => true,
@@ -43,12 +37,12 @@ export class MotionFS extends FileSystem {
     };
   }
 
-  list(path = '.'): any {
+  list(path = '.'): any { // eslint-disable-line @typescript-eslint/no-explicit-any
     path = pathjs.resolve(this.cwd, path);
     const dirs = [];
     dirs.push(this.get('.'));
-    if (this.realCwd== '/') {
-      this.cameraConfigs.forEach((camera: any) => {
+    if (path == '/') {
+      this.cameraConfigs.forEach((camera: CameraConfig) => {
         dirs.push(this.get(camera.name));
       });
     } else {
@@ -57,14 +51,14 @@ export class MotionFS extends FileSystem {
     return dirs;
   }
 
-  chdir(path = '.'): any {
+  chdir(path = '.'): any { // eslint-disable-line @typescript-eslint/no-explicit-any
     path = pathjs.resolve(this.cwd, path);
     const pathSplit = path.split('/').filter(value => value.length > 0);
     if (pathSplit.length == 0) {
       this.realCwd= path;
       return path;
     } else if (pathSplit.length == 1) {
-      const camera = this.cameraConfigs.find((camera: any) => camera.name == pathSplit[0]);
+      const camera = this.cameraConfigs.find((camera: CameraConfig) => camera.name == pathSplit[0]);
       if (camera) {
         this.realCwd= path;
         return path;
@@ -74,7 +68,8 @@ export class MotionFS extends FileSystem {
     return this.cwd;
   }
 
-  write(fileName: string, {append = false, start = undefined}): any {
+  // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
+  write(fileName: string, {append = false, start = undefined}): any { // eslint-disable-line @typescript-eslint/no-explicit-any
     const path = pathjs.resolve(this.cwd, fileName);
     fileName = pathjs.basename(path);
     const pathSplit = pathjs.dirname(path).split('/').filter((value) => value != '');
@@ -82,7 +77,7 @@ export class MotionFS extends FileSystem {
       const camera = this.cameraConfigs.find((camera: { name: string; }) => camera.name == pathSplit[0]);
       if (camera) {
         this.log.debug(camera.name + ' motion detected.');
-        if (!this.timers[camera.name]) {
+        if (!this.timers.get(camera.name)) {
           try {
             http.get('http://127.0.0.1:' + this.httpPort + '/motion?' + camera.name);
           } catch (ex) {
@@ -92,24 +87,28 @@ export class MotionFS extends FileSystem {
           this.log.debug('Motion set received, but cooldown running: ' + camera.name);
         }
         if (camera.cooldown > 0) {
-          if (this.timers[camera.name]) {
+          if (this.timers.get(camera.name)) {
             this.log.debug('Cancelling existing cooldown timer: ' + camera.name);
-            clearTimeout(this.timers[camera.name]);
+            const timer = this.timers.get(camera.name);
+            if (timer) {
+              clearTimeout(timer);
+            }
           }
           this.log.debug('Cooldown enabled, starting timer: ' + camera.name);
-          this.timers[camera.name] = setTimeout(((): void => {
+          const timeout = setTimeout(((): void => {
             this.log.debug('Cooldown finished: ' + camera.name);
             try {
               http.get('http://127.0.0.1:' + this.httpPort + '/motion/reset?' + camera.name);
             } catch (ex) {
               this.log.error(camera.name + ': Error making HTTP call: ' + ex);
             }
-            this.timers[camera.name] = null;
+            this.timers.delete(camera.name);
           }).bind(this), camera.cooldown * 1000);
+          this.timers.set(camera.name, timeout);
         }
         if (camera.server) {
           const transformStream = new Stream.Transform({
-            transform: (chunk: any, encoding: BufferEncoding, callback: TransformCallback): void => {
+            transform: (chunk: any, encoding: BufferEncoding, callback: TransformCallback): void => { // eslint-disable-line @typescript-eslint/no-explicit-any
               callback(null, chunk);
             }
           });
@@ -142,7 +141,7 @@ export class MotionFS extends FileSystem {
           });
         } else {
           return new Stream.Writable({
-            write: (chunk: any, encoding: BufferEncoding, callback): void => {
+            write: (chunk: any, encoding: BufferEncoding, callback): void => { // eslint-disable-line @typescript-eslint/no-explicit-any
               callback();
             }
           });
@@ -151,32 +150,33 @@ export class MotionFS extends FileSystem {
     }
     this.connection.reply(550, 'Permission denied.');
     return new Stream.Writable({
-      write: (chunk: any, encoding: BufferEncoding, callback): void => {
+      write: (chunk: any, encoding: BufferEncoding, callback): void => { // eslint-disable-line @typescript-eslint/no-explicit-any
         callback();
       }
     });
   }
 
-  chmod(_path: string, _mode: string): any {
+  chmod(path: string, mode: string): any { // eslint-disable-line @typescript-eslint/no-explicit-any
     return;
   }
 
-  mkdir(_path: string): any {
+  mkdir(path: string): any { // eslint-disable-line @typescript-eslint/no-explicit-any
     this.connection.reply(550, 'Permission denied.');
     return this.cwd;
   }
 
-  read(_fileName: string, {start = undefined}): any {
+  // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
+  read(fileName: string, {start = undefined}): any { // eslint-disable-line @typescript-eslint/no-explicit-any
     this.connection.reply(550, 'Permission denied.');
     return;
   }
 
-  delete(_path: string): any {
+  delete(path: string): any { // eslint-disable-line @typescript-eslint/no-explicit-any
     this.connection.reply(550, 'Permission denied.');
     return;
   }
 
-  rename(_from: string, _to: string): any {
+  rename(from: string, to: string): any { // eslint-disable-line @typescript-eslint/no-explicit-any
     this.connection.reply(550, 'Permission denied.');
     return;
   }

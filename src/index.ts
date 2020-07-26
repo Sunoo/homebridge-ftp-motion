@@ -10,6 +10,7 @@ import { FtpSrv } from 'ftp-srv';
 import ip from 'ip';
 import Bunyan from 'bunyan';
 import Stream from 'stream';
+import { CameraConfig, FtpMotionPlatformConfig } from './configTypes';
 import { MotionFS } from './motionfs';
 
 const PLUGIN_NAME = 'homebridge-ftp-motion';
@@ -17,16 +18,16 @@ const PLATFORM_NAME = 'ftpMotion';
 
 class FtpMotionPlatform implements DynamicPlatformPlugin {
   private readonly log: Logging;
-  private readonly config: PlatformConfig;
-  private readonly cameraConfigs: Array<any> = [];
+  private readonly config: FtpMotionPlatformConfig;
+  private readonly cameraConfigs: Array<CameraConfig> = [];
 
   constructor(log: Logging, config: PlatformConfig, api: API) {
     this.log = log;
-    this.config = config;
+    this.config = config as unknown as FtpMotionPlatformConfig;
 
     this.cameraConfigs = [];
 
-    config.cameras.forEach((camera: any) => {
+    config.cameras.forEach((camera: CameraConfig) => {
       const ascii = /^[\p{ASCII}]*$/u.test(camera.name);
       if (ascii) {
         this.cameraConfigs.push(camera);
