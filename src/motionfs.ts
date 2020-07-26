@@ -38,10 +38,11 @@ export class MotionFS extends FileSystem {
   }
 
   list(path = '.'): any { // eslint-disable-line @typescript-eslint/no-explicit-any
-    path = pathjs.resolve(this.cwd, path);
+    path = pathjs.resolve(this.realCwd, path);
     const dirs = [];
     dirs.push(this.get('.'));
-    if (path == '/') {
+    const pathSplit = path.split('/').filter((value: string) => value.length > 0);
+    if (pathSplit.length == 0) {
       this.cameraConfigs.forEach((camera: CameraConfig) => {
         dirs.push(this.get(camera.name));
       });
@@ -52,29 +53,29 @@ export class MotionFS extends FileSystem {
   }
 
   chdir(path = '.'): any { // eslint-disable-line @typescript-eslint/no-explicit-any
-    path = pathjs.resolve(this.cwd, path);
-    const pathSplit = path.split('/').filter(value => value.length > 0);
+    path = pathjs.resolve(this.realCwd, path);
+    const pathSplit = path.split('/').filter((value: string) => value.length > 0);
     if (pathSplit.length == 0) {
-      this.realCwd= path;
+      this.realCwd = path;
       return path;
     } else if (pathSplit.length == 1) {
       const camera = this.cameraConfigs.find((camera: CameraConfig) => camera.name == pathSplit[0]);
       if (camera) {
-        this.realCwd= path;
+        this.realCwd = path;
         return path;
       }
     }
     this.connection.reply(550, 'No such directory.');
-    return this.cwd;
+    return this.realCwd;
   }
 
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
   write(fileName: string, {append = false, start = undefined}): any { // eslint-disable-line @typescript-eslint/no-explicit-any
-    const path = pathjs.resolve(this.cwd, fileName);
+    const path = pathjs.resolve(this.realCwd, fileName);
     fileName = pathjs.basename(path);
-    const pathSplit = pathjs.dirname(path).split('/').filter((value) => value != '');
+    const pathSplit = pathjs.dirname(path).split('/').filter((value: string) => value != '');
     if (pathSplit.length == 1) {
-      const camera = this.cameraConfigs.find((camera: { name: string; }) => camera.name == pathSplit[0]);
+      const camera = this.cameraConfigs.find((camera: CameraConfig) => camera.name == pathSplit[0]);
       if (camera) {
         this.log.debug(camera.name + ' motion detected.');
         if (!this.timers.get(camera.name)) {
@@ -162,7 +163,7 @@ export class MotionFS extends FileSystem {
 
   mkdir(path: string): any { // eslint-disable-line @typescript-eslint/no-explicit-any
     this.connection.reply(550, 'Permission denied.');
-    return this.cwd;
+    return this.realCwd;
   }
 
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
