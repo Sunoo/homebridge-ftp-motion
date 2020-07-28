@@ -15,11 +15,13 @@ export class MotionFS extends FileSystem {
   private readonly timers: Map<string, NodeJS.Timeout> = new Map();
   private realCwd: string;
 
-  constructor(connection: FtpConnection, log: Logging, httpPort: number, cameraConfigs: Array<CameraConfig>) {
+  constructor(connection: FtpConnection, log: Logging, httpPort: number,
+    cameraConfigs: Array<CameraConfig>, timers: Map<string, NodeJS.Timeout>) {
     super(connection);
     this.log = log;
     this.httpPort = httpPort;
     this.cameraConfigs = cameraConfigs;
+    this.timers = timers;
 
     this.realCwd = '/';
   }

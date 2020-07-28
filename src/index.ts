@@ -20,6 +20,7 @@ class FtpMotionPlatform implements DynamicPlatformPlugin {
   private readonly log: Logging;
   private readonly config: FtpMotionPlatformConfig;
   private readonly cameraConfigs: Array<CameraConfig> = [];
+  private readonly timers: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(log: Logging, config: PlatformConfig, api: API) {
     this.log = log;
@@ -78,7 +79,7 @@ class FtpMotionPlatform implements DynamicPlatformPlugin {
       log: bunyanLog
     });
     ftpServer.on('login', (data, resolve) => {
-      resolve({fs: new MotionFS(data.connection, this.log, httpPort, this.cameraConfigs), cwd: '/'});
+      resolve({fs: new MotionFS(data.connection, this.log, httpPort, this.cameraConfigs, this.timers), cwd: '/'});
     });
     ftpServer.listen()
       .then(() =>  {
