@@ -5,7 +5,7 @@ import { Stream, TransformCallback } from 'stream';
 import http from 'http';
 import pathjs from 'path';
 import fs from 'fs';
-import basicFtp from 'basic-ftp';
+import { Client as FtpClient } from 'basic-ftp';
 import { CameraConfig } from './configTypes';
 
 export class MotionFS extends FileSystem {
@@ -115,7 +115,7 @@ export class MotionFS extends FileSystem {
               callback(null, chunk);
             }
           });
-          const client = new basicFtp.Client();
+          const client = new FtpClient();
           const remotePort = camera.port || 21;
           const remotePath = camera.path || '/';
           client.access({
@@ -128,11 +128,12 @@ export class MotionFS extends FileSystem {
             return client.ensureDir(remotePath);
           }).then(() => {
             return client.uploadFrom(transformStream, fileName);
-          }).catch((err) => {
-            this.log.error(camera.name + ': Error uploading file: ' + err);
+          }).catch((err: Error) => {
+            this.log.error(camera.name + ': Error uploading file: ' + err.message);
           }).finally(() => {
             client.close();
           });
+          return transformStream;
         } else if (camera.path) {
           const filePath = pathjs.resolve(camera.path, fileName);
           const fileStream = fs.createWriteStream(filePath);
@@ -142,6 +143,7 @@ export class MotionFS extends FileSystem {
           fileStream.on('error', (err: Error) => {
             this.log.error(camera.name + ': Error writing file: ' + err.message);
           });
+          return fileStream;
         } else {
           return new Stream.Writable({
             write: (chunk: any, encoding: BufferEncoding, callback): void => { // eslint-disable-line @typescript-eslint/no-explicit-any
