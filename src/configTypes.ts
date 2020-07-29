@@ -9,7 +9,6 @@ export type FtpMotionPlatformConfig = {
 export type CameraConfig = {
   name: string;
   cooldown: number;
-  method: StorageMethod;
   server: string;
   port: number;
   username: string;
@@ -20,9 +19,3 @@ export type CameraConfig = {
   chat_id: number;
   caption: boolean;
 };
-
-export enum StorageMethod {
-  FTP = 'ftp',
-  Local = 'local',
-  Telegram = 'telegram'
-}
