@@ -26,6 +26,11 @@
                 "placeholder": 8080,
                 "description": "The HTTP port used by homebridge-camera-ffmpeg."
             },
+            "bot_token": {
+                "title": "Telegram Bot Token",
+                "type": "string",
+                "description": "The token given by @BotFather when creating the Telegram bot."
+            },
             "cameras": {
                 "title": "Cameras",
                 "type": "array",
@@ -47,6 +52,16 @@
                             "placeholder": 0,
                             "minimum": 0,
                 			"description": "Set to 0 to disable."
+                        },
+                        "method": {
+                            "title": "Storage Method",
+                            "type": "string",
+                            "oneOf": [
+                                { "title": "Remote FTP", "enum": ["ftp"] },
+                                { "title": "Local Folder", "enum": ["local"] },
+                                { "title": "Telegram Message", "enum": ["telegram"] }
+                            ],
+                            "description": "Where to store the image uploaded to the plugin via FTP."
                         },
                         "server": {
                             "title": "Remote FTP Server",
@@ -75,13 +90,95 @@
                 			"description": "Should TLS be used to connect to remote FTP server?"
                         },
                         "path": {
-                            "title": "Storage Path",
+                            "title": "Remote FTP Path",
                             "type": "string",
-                			"description": "The location to store incoming images. If FTP Server is not set, it will be treated as a local path. If neither this nor FTP Server are set, images will not be stored."
+                			"description": "The location on the remote FTP server to store incoming images."
+                        },
+                        "local_path": {
+                            "title": "Local Path",
+                            "type": "string",
+                			"description": "The location on the system Homebridge is running on to store incoming images."
+                        },
+                        "chat_id": {
+                            "title": "Chat ID",
+                            "type": "number",
+                			"description": "The chat ID given by the bot after sending '/start' to it."
+                        },
+                        "caption":  {
+                            "title": "Include Caption",
+                            "type": "boolean",
+                            "description": "If true, sends the filename as the caption to the image."
                         }
                     }
                 }
             }
         }
-    }
+    },
+    "layout": [
+        {
+            "type": "section",
+            "expandable": true,
+            "expanded": true,
+            "items": [
+                "ftp_port",
+                "http_port",
+                "bot_token"
+            ]
+        },
+        {
+            "type": "section",
+            "title": "Cameras",
+            "expandable": true,
+            "expanded": true,
+            "items": [
+                {
+                    "key": "cameras",
+                    "type": "array",
+                    "orderable": false,
+                    "buttonText": "Add Camera",
+                    "items": [
+                        "cameras[].name",
+                        "cameras[].cooldown",
+                        "cameras[].method",
+                        {
+                            "key": "cameras[]",
+                            "type": "section",
+                            "title": "FTP Settings",
+                            "expandable": true,
+                            "expanded": false,
+                            "items": [
+                                "cameras[].server",
+                                "cameras[].port",
+                                "cameras[].username",
+                                "cameras[].password",
+                                "cameras[].tls",
+                                "cameras[].path"
+                            ]
+                        },
+                        {
+                            "key": "cameras[]",
+                            "type": "section",
+                            "title": "Local Settings",
+                            "expandable": true,
+                            "expanded": false,
+                            "items": [
+                                "cameras[].local_path"
+                            ]
+                        },
+                        {
+                            "key": "cameras[]",
+                            "type": "section",
+                            "title": "Telegram Settings",
+                            "expandable": true,
+                            "expanded": false,
+                            "items": [
+                                "cameras[].chat_id",
+                                "cameras[].caption"
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
 }
