@@ -130,7 +130,6 @@
                     "items": [
                         "cameras[].name",
                         "cameras[].cooldown",
-                        "cameras[].method",
                         {
                             "key": "cameras[]",
                             "type": "section",
