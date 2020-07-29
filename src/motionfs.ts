@@ -166,7 +166,7 @@ export class MotionFS extends FileSystem {
       this.log.debug('[' + camera.name + '] [Remote FTP] [' + fileName + '] Uploading file.');
       return client.uploadFrom(stream, fileName);
     }).then(() => {
-      this.log.debug('[' + camera.name + '] [Remote FTP] [' + fileName + '] Uploaded file.');
+      this.log('[' + camera.name + '] [Remote FTP] [' + fileName + '] Uploaded file.');
     }).catch((err: Error) => {
       this.log.error('[' + camera.name + '] [Remote FTP] [' + fileName + '] Error uploading file: ' + err.message);
     }).finally(() => {
@@ -179,7 +179,7 @@ export class MotionFS extends FileSystem {
     this.log.debug('[' + camera.name + '] [Local] [' + fileName + '] Writing file to ' + filePath + '.');
     const fileStream = fs.createWriteStream(filePath);
     fileStream.on('finish', () => {
-      this.log.debug('[' + camera.name + '] [Local] [' + fileName + '] Wrote file.');
+      this.log('[' + camera.name + '] [Local] [' + fileName + '] Wrote file.');
     });
     fileStream.on('error', (err: Error) => {
       this.log.error('[' + camera.name + '] [Local] [' + fileName + '] Error writing file: ' + err.message);
@@ -195,7 +195,7 @@ export class MotionFS extends FileSystem {
       const caption = camera.caption ? { caption: fileName } : {};
       this.telegram.sendPhoto(camera.chat_id, { source: stream }, caption)
         .then(() => {
-          this.log.debug('[' + camera.name + '] [Telegram] [' + fileName + '] Sent file.');
+          this.log('[' + camera.name + '] [Telegram] [' + fileName + '] Sent file.');
         });
     }
   }

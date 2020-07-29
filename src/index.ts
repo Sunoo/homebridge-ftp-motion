@@ -43,7 +43,7 @@ class FtpMotionPlatform implements DynamicPlatformPlugin {
     if (this.config.bot_token) {
       const bot = new Telegraf(this.config.bot_token);
       bot.catch((err: Error, ctx: Context) => {
-        this.log.error('[Telegram] Error: Update Type: ' + ctx.updateType + ', Message: ' + err.message);
+        this.log.error('[Telegram] ' + ctx.updateType + ' Error: ' + err.message);
       });
       bot.start((ctx) => {
         if (ctx.message) {
