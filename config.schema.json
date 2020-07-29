@@ -53,16 +53,6 @@
                             "minimum": 0,
                 			"description": "Set to 0 to disable."
                         },
-                        "method": {
-                            "title": "Storage Method",
-                            "type": "string",
-                            "oneOf": [
-                                { "title": "Remote FTP", "enum": ["ftp"] },
-                                { "title": "Local Folder", "enum": ["local"] },
-                                { "title": "Telegram Message", "enum": ["telegram"] }
-                            ],
-                            "description": "Where to store the image uploaded to the plugin via FTP."
-                        },
                         "server": {
                             "title": "Remote FTP Server",
                             "type": "string",
@@ -117,6 +107,7 @@
     "layout": [
         {
             "type": "section",
+            "title": "Global Settings",
             "expandable": true,
             "expanded": true,
             "items": [
@@ -143,7 +134,7 @@
                         {
                             "key": "cameras[]",
                             "type": "section",
-                            "title": "FTP Settings",
+                            "title": "Remote FTP Settings",
                             "expandable": true,
                             "expanded": false,
                             "items": [

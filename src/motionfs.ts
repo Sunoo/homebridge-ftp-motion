@@ -1,14 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Logging } from 'homebridge';
+import { Client as FtpClient } from 'basic-ftp';
+import fs from 'fs';
 import { FileSystem, FtpConnection } from 'ftp-srv';
-import { Stream, TransformCallback } from 'stream';
 import http from 'http';
 import pathjs from 'path';
-import fs from 'fs';
-import { Client as FtpClient } from 'basic-ftp';
+import { Readable, Stream, Transform, TransformCallback, Writable  } from 'stream';
 import { Telegram } from 'telegraf';
-import { CameraConfig, StorageMethod } from './configTypes';
-import { Transform, Writable} from 'stream';
+import { CameraConfig } from './configTypes';
 
 export class MotionFS extends FileSystem {
   private readonly log: Logging;
@@ -83,31 +82,31 @@ export class MotionFS extends FileSystem {
     if (pathSplit.length == 1) {
       const camera = this.cameraConfigs.find((camera: CameraConfig) => camera.name == pathSplit[0]);
       if (camera) {
-        this.log.debug(camera.name + ' motion detected.');
+        this.log.debug('[' + camera.name + '] [' + fileName + '] Receiving file.');
         if (!this.timers.get(camera.name)) {
           try {
             http.get('http://127.0.0.1:' + this.httpPort + '/motion?' + camera.name);
           } catch (ex) {
-            this.log.error(camera.name + ': Error making HTTP call: ' + ex);
+            this.log.error('[' + camera.name + '] [' + fileName + '] Error making HTTP call: ' + ex);
           }
         } else {
-          this.log.debug('Motion set received, but cooldown running: ' + camera.name);
+          this.log.debug('[' + camera.name + '] [' + fileName + '] Motion set received, but cooldown running.');
         }
         if (camera.cooldown > 0) {
           if (this.timers.get(camera.name)) {
-            this.log.debug('Cancelling existing cooldown timer: ' + camera.name);
+            this.log.debug('[' + camera.name + '] [' + fileName + '] Cancelling existing cooldown timer.');
             const timer = this.timers.get(camera.name);
             if (timer) {
               clearTimeout(timer);
             }
           }
-          this.log.debug('Cooldown enabled, starting timer: ' + camera.name);
+          this.log.debug('[' + camera.name + '] [' + fileName + '] Cooldown enabled, starting timer.');
           const timeout = setTimeout(((): void => {
-            this.log.debug('Cooldown finished: ' + camera.name);
+            this.log.debug('[' + camera.name + '] Cooldown finished.');
             try {
               http.get('http://127.0.0.1:' + this.httpPort + '/motion/reset?' + camera.name);
             } catch (ex) {
-              this.log.error(camera.name + ': Error making HTTP call: ' + ex);
+              this.log.error('[' + camera.name + '] [' + fileName + '] Error making HTTP call: ' + ex);
             }
             this.timers.delete(camera.name);
           }).bind(this), camera.cooldown * 1000);
@@ -115,9 +114,14 @@ export class MotionFS extends FileSystem {
         }
         return this.storeImage(fileName, camera);
       }
+    } else {
+      this.connection.reply(550, 'Permission denied.');
+      return new Stream.Writable({
+        write: (chunk: any, encoding: BufferEncoding, callback): void => { // eslint-disable-line @typescript-eslint/no-explicit-any
+          callback();
+        }
+      });
     }
-    this.connection.reply(550, 'Permission denied.');
-    return this.getNullStream();
   }
 
   chmod(path: string, mode: string): any { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -145,85 +149,81 @@ export class MotionFS extends FileSystem {
     return;
   }
 
-  private uploadFtp(fileName: string, camera: CameraConfig): Writable {
-    if (camera.server) {
-      const transformStream = this.getTransformStream();
-      const client = new FtpClient();
-      const remotePort = camera.port || 21;
+  private uploadFtp(stream: Readable, fileName: string, camera: CameraConfig): void {
+    this.log.debug('[' + camera.name + '] [Remote FTP] [' + fileName + '] Connecting to ' + camera.server + '.');
+    const client = new FtpClient();
+    client.access({
+      host: camera.server,
+      port: camera.port || 21,
+      user: camera.username,
+      password: camera.password,
+      secure: camera.tls
+    }).then(() => {
       const remotePath = camera.path || '/';
-      client.access({
-        host: camera.server,
-        port: remotePort,
-        user: camera.username,
-        password: camera.password,
-        secure: camera.tls
-      }).then(() => {
-        return client.ensureDir(remotePath);
-      }).then(() => {
-        const filePath = pathjs.resolve(camera.path, fileName);
-        this.log.debug(camera.name + ': Uploading file to ' + filePath);
-        return client.uploadFrom(transformStream, fileName);
-      }).then(() => {
-        this.log.debug(camera.name + ': Uploaded file: ' + fileName);
-      }).catch((err: Error) => {
-        this.log.error(camera.name + ': Error uploading file: ' + err.message);
-      }).finally(() => {
-        client.close();
-      });
-      return transformStream;
-    } else {
-      this.log.warn(camera.name + ': FTP upload selected by no remote FTP server defined.');
-      return this.getNullStream();
-    }
+      this.log.debug('[' + camera.name + '] [Remote FTP] [' + fileName + '] Changing directory to ' + remotePath + '.');
+      return client.ensureDir(remotePath);
+    }).then(() => {
+      this.log.debug('[' + camera.name + '] [Remote FTP] [' + fileName + '] Uploading file.');
+      return client.uploadFrom(stream, fileName);
+    }).then(() => {
+      this.log.debug('[' + camera.name + '] [Remote FTP] [' + fileName + '] Uploaded file.');
+    }).catch((err: Error) => {
+      this.log.error('[' + camera.name + '] [Remote FTP] [' + fileName + '] Error uploading file: ' + err.message);
+    }).finally(() => {
+      client.close();
+    });
   }
 
-  private saveLocal(fileName: string, camera: CameraConfig): Writable {
-    if (!camera.local_path) {
-      this.log.warn(camera.name + ': Local storage selected by no local path defined.');
-      return this.getNullStream();
-    } else {
-      const filePath = pathjs.resolve(camera.local_path, fileName);
-      this.log.debug(camera.name + ': Writing file to ' + filePath);
-      const fileStream = fs.createWriteStream(filePath);
-      fileStream.on('finish', () => {
-        this.log.debug(camera.name + ': Wrote file: ' + fileName);
-      });
-      fileStream.on('error', (err: Error) => {
-        this.log.error(camera.name + ': Error writing file: ' + err.message);
-      });
-      return fileStream;
-    }
+  private saveLocal(stream: Readable, fileName: string, camera: CameraConfig): void {
+    const filePath = pathjs.resolve(camera.local_path, fileName);
+    this.log.debug('[' + camera.name + '] [Local] [' + fileName + '] Writing file to ' + filePath + '.');
+    const fileStream = fs.createWriteStream(filePath);
+    fileStream.on('finish', () => {
+      this.log.debug('[' + camera.name + '] [Local] [' + fileName + '] Wrote file.');
+    });
+    fileStream.on('error', (err: Error) => {
+      this.log.error('[' + camera.name + '] [Local] [' + fileName + '] Error writing file: ' + err.message);
+    });
+    stream.pipe(fileStream);
   }
 
-  private sendTelegram(fileName: string, camera: CameraConfig): Writable {
+  private sendTelegram(stream: Readable, fileName: string, camera: CameraConfig): void {
     if (!this.telegram) {
-      this.log.warn(camera.name + ': Telegram message selected by no bot token defined.');
-      return this.getNullStream();
-    } else if (!camera.chat_id) {
-      this.log.warn(camera.name + ': Telegram message selected by no chat ID defined.');
-      return this.getNullStream();
+      this.log.warn('[' + camera.name + '] [Telegram] [' + fileName + '] Chat ID configured but no bot token defined. Skipping.');
     } else {
-      const transformStream = this.getTransformStream();
-      this.log.debug(camera.name + ': Sending ' + fileName + ' to chat ' + camera.chat_id + '.');
+      this.log.debug('[' + camera.name + '] [Telegram] [' + fileName + '] Sending to chat ' + camera.chat_id + '.');
       const caption = camera.caption ? { caption: fileName } : {};
-      this.telegram.sendPhoto(camera.chat_id, { source: transformStream }, caption)
+      this.telegram.sendPhoto(camera.chat_id, { source: stream }, caption)
         .then(() => {
-          this.log.debug(camera.name + ': Sent file: ' + fileName);
+          this.log.debug('[' + camera.name + '] [Telegram] [' + fileName + '] Sent file.');
         });
-      return transformStream;
     }
   }
 
   private storeImage(fileName: string, camera: CameraConfig): Writable {
-    switch (camera.method) {
-      case StorageMethod.FTP:
-        return this.uploadFtp(fileName, camera);
-      case StorageMethod.Local:
-        return this.saveLocal(fileName, camera);
-      case StorageMethod.Telegram:
-        return this.sendTelegram(fileName, camera);
-      default:
-        return this.getNullStream();
+    const stream = new Stream.Transform({
+      transform: (chunk: any, encoding: BufferEncoding, callback: TransformCallback): void => { // eslint-disable-line @typescript-eslint/no-explicit-any
+        callback(null, chunk);
+      }
+    });
+    let upload = false;
+    if (camera.server) {
+      upload = true;
+      this.uploadFtp(stream, fileName, camera);
+    }
+    if (camera.local_path) {
+      upload = true;
+      this.saveLocal(stream, fileName, camera);
+    }
+    if (camera.chat_id) {
+      upload = true;
+      this.sendTelegram(stream, fileName, camera);
+    }
+    if (upload) {
+      return stream;
+    } else {
+      this.log.debug('[' + camera.name + '] [' + fileName + '] No image store options configured. Discarding.');
+      return this.getNullStream();
     }
   }
 

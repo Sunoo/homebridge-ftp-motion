@@ -37,6 +37,7 @@ Edit your `config.json` accordingly. Configuration sample:
 
 - `ftp_port`: The port to run the FTP server on. (Default: `5000`)
 - `http_port`: The HTTP port used by homebridge-camera-ffmpeg. (Default: `8080`)
+- `bot_token`: The token given by @BotFather when creating the Telegram bot.
 - `cameras`: _(Required)_ Array of Dafang Hacks camera configs (multiple supported).
   - `name`: _(Required)_ Name of your camera. (Needs to be the same as in homebridge-camera-ffmpeg config)
   - `cooldown`: Cooldown in seconds. Set to 0 to disable.
@@ -45,7 +46,10 @@ Edit your `config.json` accordingly. Configuration sample:
   - `username`: Username of the remote FTP server. If not set, no authentication will be used.
   - `password`: Password of the remote FTP server. If not set, no authentication will be used.
   - `tls`: Should TLS be used to connect to remote FTP server? (Default: `false`)
-  - `path`: The location to store incoming images. If FTP Server is not set, it will be treated as a local path. If neither this nor FTP Server are set, images will not be stored.
+  - `path`: The location on the remote FTP server to store incoming images.
+  - `local_path`: The location on the system Homebridge is running on to store incoming images.
+  - `chat_id`: The chat ID given by the bot after sending '/start' to it.
+  - `caption`: If true, sends the filename as the caption to the image.
 
 ### Camera Configuration
 
@@ -55,3 +59,15 @@ To use this plugin, you'll need to configure the FTP settings on your camera as 
 - `Port`: The value you used for `ftp_port` in the plugin configuration.
 - `Username` and `Password`: Any value can currently be used, as authentication is not currently supported in this plugin. That will likely be added in future versions.
 - `Path`: This should be the name of your camera, exactly as defined in the homebridge-camera-ffmpeg plugin.
+
+### Telegram Bot Setup
+
+If you want to use the Telegram functionality of this plugin, you'll need to set up your own Telegram bot. Here are instructions on doing that with this plugin.
+
+- Send `/newbot` to [@BotFather](https://t.me/botfather) on Telegram and answer the questions it asks you.
+- When it sends `Use this token to access the HTTP API`, copy the token and add it to this plugin's config under `bot_token`.
+- Restart Homebridge, this will allow the bot to start and connect to Telegram.
+- If you want the bot to message a group, invite the bot to that group.
+- From the chat you want to receive notifications, send `/start`.
+- Your bot will send you `Chat ID for (chatname)`, copy that ID to this plugin's config under `chat_id`. This is set uniquely for each camera.
+- Restart Homebridge again. Your bot is now configured.

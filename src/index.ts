@@ -6,13 +6,13 @@ import {
   PlatformAccessory,
   PlatformConfig
 } from 'homebridge';
+import Bunyan from 'bunyan';
 import { FtpSrv } from 'ftp-srv';
 import ip from 'ip';
-import Bunyan from 'bunyan';
 import Stream from 'stream';
+import { Telegraf, Telegram, Context } from 'telegraf';
 import { CameraConfig, FtpMotionPlatformConfig } from './configTypes';
 import { MotionFS } from './motionfs';
-import { Telegraf, Telegram, Context } from 'telegraf';
 
 const PLUGIN_NAME = 'homebridge-ftp-motion';
 const PLATFORM_NAME = 'ftpMotion';
@@ -35,7 +35,7 @@ class FtpMotionPlatform implements DynamicPlatformPlugin {
       if (ascii) {
         this.cameraConfigs.push(camera);
       } else {
-        this.log.warn('Camera "' + camera.name + '" contains non-ASCII characters. FTP does not support Unicode, ' +
+        this.log.warn('[' + camera.name + '] Camera name contains non-ASCII characters. FTP does not support Unicode, ' +
             'so it is being skipped. Please rename this camera if you wish to use this plugin with it.');
       }
     });
@@ -43,16 +43,17 @@ class FtpMotionPlatform implements DynamicPlatformPlugin {
     if (this.config.bot_token) {
       const bot = new Telegraf(this.config.bot_token);
       bot.catch((err: Error, ctx: Context) => {
-        this.log.error('Telegram error: Update Type: ' + ctx.updateType + ', Message: ' + err.message);
+        this.log.error('[Telegram] Error: Update Type: ' + ctx.updateType + ', Message: ' + err.message);
       });
       bot.start((ctx) => {
         if (ctx.message) {
-          ctx.reply('Chat ID: ' + ctx.message.chat.id);
           const from = ctx.message.chat.title || ctx.message.chat.username || 'unknown';
-          this.log.debug('Telegram Chat ID for ' + from + ': ' + ctx.message.chat.id);
+          const message = 'Chat ID for ' + from + ': ' + ctx.message.chat.id;
+          ctx.reply(message);
+          this.log.debug('[Telegram] ' + message);
         }
       });
-      this.log('Connecting to Telegram.');
+      this.log('[Telegram] Connecting to Telegram...');
       bot.launch();
       this.telegram = bot.telegram;
     }
@@ -71,7 +72,7 @@ class FtpMotionPlatform implements DynamicPlatformPlugin {
     const logStream = new Stream.Writable({
       write: (chunk: string, encoding: BufferEncoding, callback): void => {
         const data = JSON.parse(chunk);
-        const message = 'FTP Server: ' + data.msg;
+        const message = '[FTP Server] [Bunyan] ' + data.msg;
         if (data.level >= 50) {
           this.log.error(message);
         } else if (data.level >= 40) {
@@ -102,7 +103,7 @@ class FtpMotionPlatform implements DynamicPlatformPlugin {
     });
     ftpServer.listen()
       .then(() =>  {
-        this.log('FTP server started on port ' + ftpPort + '.');
+        this.log('[FTP Server] Started on port ' + ftpPort + '.');
       });
   }
 }
