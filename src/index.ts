@@ -12,6 +12,7 @@ import Bunyan from 'bunyan';
 import Stream from 'stream';
 import { CameraConfig, FtpMotionPlatformConfig } from './configTypes';
 import { MotionFS } from './motionfs';
+import { Telegraf, Telegram, Context } from 'telegraf';
 
 const PLUGIN_NAME = 'homebridge-ftp-motion';
 const PLATFORM_NAME = 'ftpMotion';
@@ -21,6 +22,7 @@ class FtpMotionPlatform implements DynamicPlatformPlugin {
   private readonly config: FtpMotionPlatformConfig;
   private readonly cameraConfigs: Array<CameraConfig> = [];
   private readonly timers: Map<string, NodeJS.Timeout> = new Map();
+  private readonly telegram?: Telegram;
 
   constructor(log: Logging, config: PlatformConfig, api: API) {
     this.log = log;
@@ -37,6 +39,23 @@ class FtpMotionPlatform implements DynamicPlatformPlugin {
             'so it is being skipped. Please rename this camera if you wish to use this plugin with it.');
       }
     });
+
+    if (this.config.bot_token) {
+      const bot = new Telegraf(this.config.bot_token);
+      bot.catch((err: Error, ctx: Context) => {
+        this.log.error('Telegram error: Update Type: ' + ctx.updateType + ', Message: ' + err.message);
+      });
+      bot.start((ctx) => {
+        if (ctx.message) {
+          ctx.reply('Chat ID: ' + ctx.message.chat.id);
+          const from = ctx.message.chat.title || ctx.message.chat.username || 'unknown';
+          this.log.debug('Telegram Chat ID for ' + from + ': ' + ctx.message.chat.id);
+        }
+      });
+      this.log('Connecting to Telegram.');
+      bot.launch();
+      this.telegram = bot.telegram;
+    }
 
     api.on(APIEvent.DID_FINISH_LAUNCHING, this.startFtp.bind(this));
   }
@@ -79,7 +98,7 @@ class FtpMotionPlatform implements DynamicPlatformPlugin {
       log: bunyanLog
     });
     ftpServer.on('login', (data, resolve) => {
-      resolve({fs: new MotionFS(data.connection, this.log, httpPort, this.cameraConfigs, this.timers), cwd: '/'});
+      resolve({fs: new MotionFS(data.connection, this.log, httpPort, this.cameraConfigs, this.timers, this.telegram), cwd: '/'});
     });
     ftpServer.listen()
       .then(() =>  {
