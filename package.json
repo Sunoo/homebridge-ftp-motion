@@ -1,7 +1,7 @@
 {
   "displayName": "Homebridge FTP Motion",
   "name": "homebridge-ftp-motion",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Converts FTP uploads into HTTP motion alerts that homebridge-camera-ffmpeg understands",
   "main": "dist/index.js",
   "repository": {
