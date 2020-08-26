@@ -1,6 +1,6 @@
 # homebridge-ftp-motion
 
-[![npm](https://img.shields.io/npm/v/homebridge-ftp-motion) ![npm](https://img.shields.io/npm/dt/homebridge-ftp-motion)](https://www.npmjs.com/package/homebridge-ftp-motion)
+[![npm](https://img.shields.io/npm/v/homebridge-ftp-motion) ![npm](https://img.shields.io/npm/dt/homebridge-ftp-motion)](https://www.npmjs.com/package/homebridge-ftp-motion) [![verified-by-homebridge](https://badgen.net/badge/homebridge/verified/purple)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
 
 This plugin converts FTP uploads into HTTP motion alerts [homebridge-camera-ffmpeg](https://github.com/homebridge-plugins/homebridge-camera-ffmpeg) understands.
 
