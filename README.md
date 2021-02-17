@@ -36,7 +36,6 @@ Edit your `config.json` accordingly. Configuration sample:
 #### Configuration Options
 
 - `ftp_port`: The port to run the FTP server on. (Default: `5000`)
-- `http_port`: The HTTP port used by homebridge-camera-ffmpeg. (Default: `8080`)
 - `bot_token`: The token given by @BotFather when creating the Telegram bot.
 - `cameras`: _(Required)_ Array of Dafang Hacks camera configs (multiple supported).
   - `name`: _(Required)_ Name of your camera. (Needs to be the same as in homebridge-camera-ffmpeg config)

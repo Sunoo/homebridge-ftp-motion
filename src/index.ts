@@ -2,15 +2,20 @@ import {
   API,
   APIEvent,
   DynamicPlatformPlugin,
+  HomebridgeConfig,
   Logging,
   PlatformAccessory,
   PlatformConfig
 } from 'homebridge';
 import Bunyan from 'bunyan';
+import { readFileSync } from 'fs';
 import { FtpSrv } from 'ftp-srv';
+import { FfmpegPlatformConfig } from 'homebridge-camera-ffmpeg/dist/configTypes';
 import ip from 'ip';
+import { Logger } from './logger';
 import Stream from 'stream';
-import { Telegraf, Telegram, Context } from 'telegraf';
+import { Telegraf, Context } from 'telegraf';
+import Telegram from 'telegraf/typings/telegram';
 import { CameraConfig, FtpMotionPlatformConfig } from './configTypes';
 import { MotionFS } from './motionfs';
 
@@ -18,42 +23,62 @@ const PLUGIN_NAME = 'homebridge-ftp-motion';
 const PLATFORM_NAME = 'ftpMotion';
 
 class FtpMotionPlatform implements DynamicPlatformPlugin {
-  private readonly log: Logging;
+  private readonly log: Logger;
+  private readonly api: API;
   private readonly config: FtpMotionPlatformConfig;
+  private readonly porthttp?: number;
   private readonly cameraConfigs: Array<CameraConfig> = [];
   private readonly timers: Map<string, NodeJS.Timeout> = new Map();
   private readonly telegram?: Telegram;
 
   constructor(log: Logging, config: PlatformConfig, api: API) {
-    this.log = log;
-    this.config = config as unknown as FtpMotionPlatformConfig;
+    this.log = new Logger(log);
+    this.api = api;
+    this.config = config as FtpMotionPlatformConfig;
+
+    const fullConfig = JSON.parse(readFileSync(this.api.user.configPath(), 'utf8')) as HomebridgeConfig;
+    const ffmpegConfig = fullConfig.platforms.find((config: { platform: string }) => config.platform === 'Camera-ffmpeg') as unknown as FfmpegPlatformConfig;
+    if (!ffmpegConfig) {
+      this.log.error('The homebridge-camera-ffmpeg plugin must be installed and configured.');
+      return;
+    } else {
+      this.porthttp = ffmpegConfig?.porthttp;
+      if (!this.porthttp) {
+        this.log.error('You must have "porthttp" configured in the homebridge-camera-ffmpeg plugin.');
+        return;
+      }
+    }
 
     this.cameraConfigs = [];
 
     config.cameras.forEach((camera: CameraConfig) => {
-      const ascii = /^[\p{ASCII}]*$/u.test(camera.name);
-      if (ascii) {
-        this.cameraConfigs.push(camera);
+      if (!camera.name) {
+        this.log.error('One of your cameras has no name configured. This camera will be skipped.');
       } else {
-        this.log.warn('[' + camera.name + '] Camera name contains non-ASCII characters. FTP does not support Unicode, ' +
-            'so it is being skipped. Please rename this camera if you wish to use this plugin with it.');
+        const ascii = /^[\p{ASCII}]*$/u.test(camera.name);
+        if (ascii) {
+          this.cameraConfigs.push(camera);
+        } else {
+          this.log.warn('Camera name contains non-ASCII characters. FTP does not support Unicode, so it is ' +
+            'being skipped. Please rename this camera if you wish to use this plugin with it.', camera.name);
+        }
       }
     });
 
     if (this.config.bot_token) {
       const bot = new Telegraf(this.config.bot_token);
-      bot.catch((err: Error, ctx: Context) => {
-        this.log.error('[Telegram] ' + ctx.updateType + ' Error: ' + err.message);
+      bot.catch((err: unknown, ctx: Context) => {
+        this.log.error(ctx.updateType + ' Error: ' + err, 'Telegram');
       });
       bot.start((ctx) => {
         if (ctx.message) {
-          const from = ctx.message.chat.title || ctx.message.chat.username || 'unknown';
+          const from = ctx.from?.username || 'unknown';
           const message = 'Chat ID for ' + from + ': ' + ctx.message.chat.id;
           ctx.reply(message);
-          this.log.debug('[Telegram] ' + message);
+          this.log.debug(message, 'Telegram');
         }
       });
-      this.log('[Telegram] Connecting to Telegram...');
+      this.log.info('Connecting to Telegram...', 'Telegram');
       bot.launch();
       this.telegram = bot.telegram;
     }
@@ -68,27 +93,25 @@ class FtpMotionPlatform implements DynamicPlatformPlugin {
   startFtp(): void {
     const ipAddr = ip.address('public', 'ipv4');
     const ftpPort = this.config.ftp_port || 5000;
-    const httpPort = this.config.http_port || 8080;
-    const logStream = new Stream.Writable({
-      write: (chunk: string, encoding: BufferEncoding, callback): void => {
-        const data = JSON.parse(chunk);
-        const message = '[FTP Server] [Bunyan] ' + data.msg;
-        if (data.level >= 50) {
-          this.log.error(message);
-        } else if (data.level >= 40) {
-          this.log.warn(message);
-        } else if (data.level >= 30) {
-          this.log.info(message);
-        } else if (data.level >= 20) {
-          this.log.debug(message);
-        }
-        callback();
-      }
-    });
-    const bunyanLog = Bunyan.createLogger({
+    const httpPort = this.porthttp!;
+    const bunyan = Bunyan.createLogger({
       name: 'ftp',
       streams: [{
-        stream: logStream
+        stream: new Stream.Writable({
+          write: (chunk: string, encoding: BufferEncoding, callback): void => {
+            const data = JSON.parse(chunk);
+            if (data.level >= 50) {
+              this.log.error(data.msg, 'FTP Server] [Bunyan');
+            } else if (data.level >= 40) {
+              this.log.warn(data.msg, 'FTP Server] [Bunyan');
+            } else if (data.level >= 30) {
+              this.log.info(data.msg, 'FTP Server] [Bunyan');
+            } else if (data.level >= 20) {
+              this.log.debug(data.msg, 'FTP Server] [Bunyan');
+            }
+            callback();
+          }
+        })
       }]
     });
     const ftpServer = new FtpSrv({
@@ -96,14 +119,14 @@ class FtpMotionPlatform implements DynamicPlatformPlugin {
       pasv_url: ipAddr,
       anonymous: true,
       blacklist: ['MKD', 'APPE', 'RETR', 'DELE', 'RNFR', 'RNTO', 'RMD'],
-      log: bunyanLog
+      log: bunyan
     });
     ftpServer.on('login', (data, resolve) => {
       resolve({fs: new MotionFS(data.connection, this.log, httpPort, this.cameraConfigs, this.timers, this.telegram), cwd: '/'});
     });
     ftpServer.listen()
       .then(() =>  {
-        this.log('[FTP Server] Started on port ' + ftpPort + '.');
+        this.log.info('Started on port ' + ftpPort + '.', 'FTP Server');
       });
   }
 }

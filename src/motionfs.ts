@@ -1,23 +1,23 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Logging } from 'homebridge';
 import { Client as FtpClient } from 'basic-ftp';
 import fs from 'fs';
 import { FileSystem, FtpConnection } from 'ftp-srv';
 import http from 'http';
+import { Logger } from './logger';
 import pathjs from 'path';
 import { Readable, Stream, Transform, TransformCallback, Writable  } from 'stream';
-import { Telegram } from 'telegraf';
+import Telegram from 'telegraf/typings/telegram';
 import { CameraConfig } from './configTypes';
 
 export class MotionFS extends FileSystem {
-  private readonly log: Logging;
+  private readonly log: Logger;
   private readonly httpPort: number;
   private readonly cameraConfigs: Array<CameraConfig>;
   private readonly timers: Map<string, NodeJS.Timeout> = new Map();
   private readonly telegram?: Telegram;
   private realCwd: string;
 
-  constructor(connection: FtpConnection, log: Logging, httpPort: number, cameraConfigs: Array<CameraConfig>,
+  constructor(connection: FtpConnection, log: Logger, httpPort: number, cameraConfigs: Array<CameraConfig>,
     timers: Map<string, NodeJS.Timeout>, telegram?: Telegram) {
     super(connection);
     this.log = log;
@@ -49,7 +49,7 @@ export class MotionFS extends FileSystem {
     const pathSplit = path.split('/').filter((value: string) => value.length > 0);
     if (pathSplit.length == 0) {
       this.cameraConfigs.forEach((camera: CameraConfig) => {
-        dirs.push(this.get(camera.name));
+        dirs.push(this.get(camera.name!));
       });
     } else {
       dirs.push(this.get('..'));
@@ -82,8 +82,8 @@ export class MotionFS extends FileSystem {
     if (pathSplit.length == 1) {
       const camera = this.cameraConfigs.find((camera: CameraConfig) => camera.name == pathSplit[0]);
       if (camera) {
-        this.log.debug('[' + camera.name + '] [' + fileName + '] Receiving file.');
-        if (!this.timers.get(camera.name)) {
+        this.log.debug('Receiving file.', camera.name + '] [' + fileName);
+        if (!this.timers.get(camera.name!)) {
           try {
             http.get('http://127.0.0.1:' + this.httpPort + '/motion?' + camera.name);
           } catch (ex) {
@@ -92,10 +92,10 @@ export class MotionFS extends FileSystem {
         } else {
           this.log.debug('[' + camera.name + '] [' + fileName + '] Motion set received, but cooldown running.');
         }
-        if (camera.cooldown > 0) {
-          if (this.timers.get(camera.name)) {
+        if (camera.cooldown && camera.cooldown > 0) {
+          if (this.timers.get(camera.name!)) {
             this.log.debug('[' + camera.name + '] [' + fileName + '] Cancelling existing cooldown timer.');
-            const timer = this.timers.get(camera.name);
+            const timer = this.timers.get(camera.name!);
             if (timer) {
               clearTimeout(timer);
             }
@@ -108,19 +108,15 @@ export class MotionFS extends FileSystem {
             } catch (ex) {
               this.log.error('[' + camera.name + '] [' + fileName + '] Error making HTTP call: ' + ex);
             }
-            this.timers.delete(camera.name);
+            this.timers.delete(camera.name!);
           }).bind(this), camera.cooldown * 1000);
-          this.timers.set(camera.name, timeout);
+          this.timers.set(camera.name!, timeout);
         }
         return this.storeImage(fileName, camera);
       }
     } else {
       this.connection.reply(550, 'Permission denied.');
-      return new Stream.Writable({
-        write: (chunk: any, encoding: BufferEncoding, callback): void => { // eslint-disable-line @typescript-eslint/no-explicit-any
-          callback();
-        }
-      });
+      return this.getNullStream();
     }
   }
 
@@ -150,7 +146,7 @@ export class MotionFS extends FileSystem {
   }
 
   private uploadFtp(stream: Readable, fileName: string, camera: CameraConfig): void {
-    this.log.debug('[' + camera.name + '] [Remote FTP] [' + fileName + '] Connecting to ' + camera.server + '.');
+    this.log.debug('Connecting to ' + camera.server + '.', camera.name + '] [Remote FTP] [' + fileName);
     const client = new FtpClient();
     client.access({
       host: camera.server,
@@ -160,52 +156,48 @@ export class MotionFS extends FileSystem {
       secure: camera.tls
     }).then(() => {
       const remotePath = camera.path || '/';
-      this.log.debug('[' + camera.name + '] [Remote FTP] [' + fileName + '] Changing directory to ' + remotePath + '.');
+      this.log.debug('Changing directory to ' + remotePath + '.', camera.name + '] [Remote FTP] [' + fileName);
       return client.ensureDir(remotePath);
     }).then(() => {
-      this.log.debug('[' + camera.name + '] [Remote FTP] [' + fileName + '] Uploading file.');
+      this.log.debug('Uploading file.', camera.name + '] [Remote FTP] [' + fileName);
       return client.uploadFrom(stream, fileName);
     }).then(() => {
-      this.log('[' + camera.name + '] [Remote FTP] [' + fileName + '] Uploaded file.');
+      this.log.info('Uploaded file.', camera.name + '] [Remote FTP] [' + fileName);
     }).catch((err: Error) => {
-      this.log.error('[' + camera.name + '] [Remote FTP] [' + fileName + '] Error uploading file: ' + err.message);
+      this.log.error('Error uploading file: ' + err.message, camera.name + '] [Remote FTP] [' + fileName);
     }).finally(() => {
       client.close();
     });
   }
 
   private saveLocal(stream: Readable, fileName: string, camera: CameraConfig): void {
-    const filePath = pathjs.resolve(camera.local_path, fileName);
-    this.log.debug('[' + camera.name + '] [Local] [' + fileName + '] Writing file to ' + filePath + '.');
+    const filePath = pathjs.resolve(camera.local_path!, fileName);
+    this.log.debug('Writing file to ' + filePath + '.', camera.name + '] [Local] [' + fileName);
     const fileStream = fs.createWriteStream(filePath);
     fileStream.on('finish', () => {
-      this.log('[' + camera.name + '] [Local] [' + fileName + '] Wrote file.');
+      this.log.info('Wrote file.', camera.name + '] [Local] [' + fileName);
     });
     fileStream.on('error', (err: Error) => {
-      this.log.error('[' + camera.name + '] [Local] [' + fileName + '] Error writing file: ' + err.message);
+      this.log.error('Error writing file: ' + err.message, camera.name + '] [Local] [' + fileName);
     });
     stream.pipe(fileStream);
   }
 
   private sendTelegram(stream: Readable, fileName: string, camera: CameraConfig): void {
     if (!this.telegram) {
-      this.log.warn('[' + camera.name + '] [Telegram] [' + fileName + '] Chat ID configured but no bot token defined. Skipping.');
+      this.log.warn('Chat ID configured but no bot token defined. Skipping.', camera.name + '] [Telegram] [' + fileName);
     } else {
-      this.log.debug('[' + camera.name + '] [Telegram] [' + fileName + '] Sending to chat ' + camera.chat_id + '.');
+      this.log.debug('Sending to chat ' + camera.chat_id + '.', camera.name + '] [Telegram] [' + fileName);
       const caption = camera.caption ? { caption: fileName } : {};
-      this.telegram.sendPhoto(camera.chat_id, { source: stream }, caption)
+      this.telegram.sendPhoto(camera.chat_id!, { source: stream }, caption)
         .then(() => {
-          this.log('[' + camera.name + '] [Telegram] [' + fileName + '] Sent file.');
+          this.log.info('Sent file.', camera.name + '] [Telegram] [' + fileName);
         });
     }
   }
 
   private storeImage(fileName: string, camera: CameraConfig): Writable {
-    const stream = new Stream.Transform({
-      transform: (chunk: any, encoding: BufferEncoding, callback: TransformCallback): void => { // eslint-disable-line @typescript-eslint/no-explicit-any
-        callback(null, chunk);
-      }
-    });
+    const stream = this.getTransformStream();
     let upload = false;
     if (camera.server) {
       upload = true;
@@ -222,7 +214,7 @@ export class MotionFS extends FileSystem {
     if (upload) {
       return stream;
     } else {
-      this.log.debug('[' + camera.name + '] [' + fileName + '] No image store options configured. Discarding.');
+      this.log.debug('No image store options configured. Discarding.', camera.name + '] [' + fileName);
       return this.getNullStream();
     }
   }
