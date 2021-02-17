@@ -10,7 +10,6 @@ export type FtpMotionPlatformConfig = {
 
 export type CameraConfig = {
   name?: string;
-  cooldown?: number;
   server?: string;
   port?: number;
   username?: string;

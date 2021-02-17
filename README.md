@@ -39,7 +39,6 @@ Edit your `config.json` accordingly. Configuration sample:
 - `bot_token`: The token given by @BotFather when creating the Telegram bot.
 - `cameras`: _(Required)_ Array of Dafang Hacks camera configs (multiple supported).
   - `name`: _(Required)_ Name of your camera. (Needs to be the same as in homebridge-camera-ffmpeg config)
-  - `cooldown`: Cooldown in seconds. Set to 0 to disable.
   - `server`: Hostname or IP address of the FTP server to upload to. If not set, files will be stored locally.
   - `port`: Port of the remote FTP server. (Default: `21`)
   - `username`: Username of the remote FTP server. If not set, no authentication will be used.

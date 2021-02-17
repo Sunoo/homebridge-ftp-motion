@@ -12,11 +12,11 @@ import { readFileSync } from 'fs';
 import { FtpSrv } from 'ftp-srv';
 import { FfmpegPlatformConfig } from 'homebridge-camera-ffmpeg/dist/configTypes';
 import ip from 'ip';
-import { Logger } from './logger';
 import Stream from 'stream';
 import { Telegraf, Context } from 'telegraf';
 import Telegram from 'telegraf/typings/telegram';
 import { CameraConfig, FtpMotionPlatformConfig } from './configTypes';
+import { Logger } from './logger';
 import { MotionFS } from './motionfs';
 
 const PLUGIN_NAME = 'homebridge-ftp-motion';
@@ -28,7 +28,6 @@ class FtpMotionPlatform implements DynamicPlatformPlugin {
   private readonly config: FtpMotionPlatformConfig;
   private readonly porthttp?: number;
   private readonly cameraConfigs: Array<CameraConfig> = [];
-  private readonly timers: Map<string, NodeJS.Timeout> = new Map();
   private readonly telegram?: Telegram;
 
   constructor(log: Logging, config: PlatformConfig, api: API) {
@@ -72,8 +71,7 @@ class FtpMotionPlatform implements DynamicPlatformPlugin {
       });
       bot.start((ctx) => {
         if (ctx.message) {
-          const from = ctx.from?.username || 'unknown';
-          const message = 'Chat ID for ' + from + ': ' + ctx.message.chat.id;
+          const message = 'Chat ID: ' + ctx.message.chat.id;
           ctx.reply(message);
           this.log.debug(message, 'Telegram');
         }
@@ -122,7 +120,7 @@ class FtpMotionPlatform implements DynamicPlatformPlugin {
       log: bunyan
     });
     ftpServer.on('login', (data, resolve) => {
-      resolve({fs: new MotionFS(data.connection, this.log, httpPort, this.cameraConfigs, this.timers, this.telegram), cwd: '/'});
+      resolve({fs: new MotionFS(data.connection, this.log, httpPort, this.cameraConfigs, this.telegram), cwd: '/'});
     });
     ftpServer.listen()
       .then(() =>  {

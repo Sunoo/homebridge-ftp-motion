@@ -1,29 +1,29 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import axios from 'axios';
 import { Client as FtpClient } from 'basic-ftp';
 import fs from 'fs';
 import { FileSystem, FtpConnection } from 'ftp-srv';
-import http from 'http';
-import { Logger } from './logger';
+import { AutomationReturn } from 'homebridge-camera-ffmpeg/dist/autoTypes';
+import pSyncy from 'p-syncy';
 import pathjs from 'path';
 import { Readable, Stream, Transform, TransformCallback, Writable  } from 'stream';
 import Telegram from 'telegraf/typings/telegram';
 import { CameraConfig } from './configTypes';
+import { Logger } from './logger';
 
 export class MotionFS extends FileSystem {
   private readonly log: Logger;
   private readonly httpPort: number;
   private readonly cameraConfigs: Array<CameraConfig>;
-  private readonly timers: Map<string, NodeJS.Timeout> = new Map();
   private readonly telegram?: Telegram;
   private realCwd: string;
 
-  constructor(connection: FtpConnection, log: Logger, httpPort: number, cameraConfigs: Array<CameraConfig>,
-    timers: Map<string, NodeJS.Timeout>, telegram?: Telegram) {
+  constructor(connection: FtpConnection, log: Logger, httpPort: number,
+    cameraConfigs: Array<CameraConfig>, telegram?: Telegram) {
     super(connection);
     this.log = log;
     this.httpPort = httpPort;
     this.cameraConfigs = cameraConfigs;
-    this.timers = timers;
     this.telegram = telegram;
 
     this.realCwd = '/';
@@ -83,36 +83,23 @@ export class MotionFS extends FileSystem {
       const camera = this.cameraConfigs.find((camera: CameraConfig) => camera.name == pathSplit[0]);
       if (camera) {
         this.log.debug('Receiving file.', camera.name + '] [' + fileName);
-        if (!this.timers.get(camera.name!)) {
-          try {
-            http.get('http://127.0.0.1:' + this.httpPort + '/motion?' + camera.name);
-          } catch (ex) {
-            this.log.error('[' + camera.name + '] [' + fileName + '] Error making HTTP call: ' + ex);
+        try {
+          const res = pSyncy(axios.get('http://127.0.0.1:' + this.httpPort + '/motion?' + camera.name, {
+            maxRedirects: 0,
+            timeout: 500
+          }));
+          const status = res.data as AutomationReturn;
+          if (!status.cooldownActive) {
+            this.log.debug('Motion set received.', camera.name + '] [' + fileName);
+            return this.storeImage(fileName, camera);
+          } else {
+            this.log.debug('Motion set received, but cooldown running. Ignoring.', camera.name + '] [' + fileName);
+            return this.getNullStream();
           }
-        } else {
-          this.log.debug('[' + camera.name + '] [' + fileName + '] Motion set received, but cooldown running.');
+        } catch (ex) {
+          this.log.error('Error making HTTP call: ' + ex, camera.name + '] [' + fileName);
+          return this.getNullStream();
         }
-        if (camera.cooldown && camera.cooldown > 0) {
-          if (this.timers.get(camera.name!)) {
-            this.log.debug('[' + camera.name + '] [' + fileName + '] Cancelling existing cooldown timer.');
-            const timer = this.timers.get(camera.name!);
-            if (timer) {
-              clearTimeout(timer);
-            }
-          }
-          this.log.debug('[' + camera.name + '] [' + fileName + '] Cooldown enabled, starting timer.');
-          const timeout = setTimeout(((): void => {
-            this.log.debug('[' + camera.name + '] Cooldown finished.');
-            try {
-              http.get('http://127.0.0.1:' + this.httpPort + '/motion/reset?' + camera.name);
-            } catch (ex) {
-              this.log.error('[' + camera.name + '] [' + fileName + '] Error making HTTP call: ' + ex);
-            }
-            this.timers.delete(camera.name!);
-          }).bind(this), camera.cooldown * 1000);
-          this.timers.set(camera.name!, timeout);
-        }
-        return this.storeImage(fileName, camera);
       }
     } else {
       this.connection.reply(550, 'Permission denied.');
