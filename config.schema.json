@@ -20,6 +20,11 @@
                 "placeholder": 5000,
                 "description": "The port to run the FTP server on."
             },
+            "override_http": {
+                "title": "Override HTTP Port",
+                "type": "integer",
+                "description": "If you need to override the HTTP port, or are not running homebridge-camera-ffmpeg."
+            },
             "bot_token": {
                 "title": "Telegram Bot Token",
                 "type": "string",
@@ -99,7 +104,8 @@
             "expanded": true,
             "items": [
                 "ftp_port",
-                "bot_token"
+                "bot_token",
+                "override_http"
             ]
         },
         {

@@ -4,6 +4,7 @@ export type FtpMotionPlatformConfig = {
   platform: PlatformName | PlatformIdentifier;
   name?: string;
   ftp_port?: number;
+  override_http?: number;
   bot_token?: string;
   cameras?: Array<CameraConfig>;
 };
